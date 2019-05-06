@@ -30,7 +30,7 @@ class PennAction(edu.DatasetMixin):
 
             print("Generating labels.")
             label_keys = ['action', 'bbox', 'dimensions', 'nframes', 'pose',
-                          'train', 'visibility', 'x', 'y', 'image_path']
+                          'train', 'visibility', 'x', 'y', 'video_id', 'image_path']
             labels = dict((k, list()) for k in label_keys)
 
             label_dir = root.joinpath("Penn_Action", "labels")
@@ -54,6 +54,7 @@ class PennAction(edu.DatasetMixin):
                             "visibility": label_file["visibility"][i],
                             "x": label_file["x"][i],
                             "y": label_file["y"][i]}
+                    frame_labels["video_id"] = video_id.name
                     frame_labels["image_path"] = str(frame_path.relative_to(root))
                     for k in label_keys:
                         labels[k].append(frame_labels[k])
@@ -85,5 +86,5 @@ class PennActionCropped(PennAction):
         example = super().get_example(i)
         image = edu.load_image(os.path.join(self.root, example["image_path"]))
         example["image"] = edu.quadratic_crop(image, example["bbox"], alpha = 1.0)
-        example["image"] = edu.resize_float32(example["image"], self.config.get("size", 256))
+        example["image"] = edu.resize_float32(example["image"], self.config.get("spatial_size", 256))
         return example
