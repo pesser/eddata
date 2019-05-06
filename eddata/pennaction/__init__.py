@@ -80,6 +80,9 @@ class PennAction(edu.DatasetMixin):
             example[k] = self.labels[k][i]
         return example
 
+    def __len__(self):
+        return self._length
+
 
 class PennActionCropped(PennAction):
     def get_example(self, i):
