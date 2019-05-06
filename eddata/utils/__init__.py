@@ -29,12 +29,15 @@ def prompt_download(file_, source, target_dir):
 
 def quadratic_crop(x, bbox, alpha = 1.0):
     """bbox is xmin, ymin, xmax, ymax"""
+    im_h, im_w = x.shape[:2]
+    bbox = np.array(bbox, dtype = np.float32)
+    bbox = np.clip(bbox, 0, max(im_h, im_w))
     center = 0.5*(bbox[0]+bbox[2]), 0.5*(bbox[1]+bbox[3])
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     l = int(alpha*max(w, h))
+    l = max(l, 2)
 
-    im_h, im_w = x.shape[:2]
     required_padding = -1*min(
             center[0] - l,
             center[1] - l,
