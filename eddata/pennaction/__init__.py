@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import eddata.utils as edu
 from scipy.io import loadmat
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 
 class PennAction(edu.DatasetMixin):
@@ -85,9 +85,77 @@ class PennAction(edu.DatasetMixin):
 
 
 class PennActionCropped(PennAction):
-    def get_example(self, i):
+    def __init__(self, config = None):
+        super().__init__(config)
+        self._prepare_crops()
+
+    def _prepare_crops(self):
+        self.crop_root = Path(self.root).joinpath("Penn_Action", "cropped")
+        self.crop_root.mkdir(exist_ok = True)
+        if not edu.is_prepared(self.crop_root):
+            frames_root = Path(self.root).joinpath("Penn_Action", "frames")
+            csv = list()
+            for i in trange(len(self)):
+                image_path = self.labels["image_path"][i]
+                video_id = self.labels["video_id"][i]
+                image_path = Path(self.root).joinpath(image_path)
+                sub_path = image_path.relative_to(frames_root)
+                cropped_path = self.crop_root.joinpath(sub_path)
+
+                if not cropped_path.exists():
+                    cropped_example = self._get_cropped_example(i)
+                    cropped_image = cropped_example["image"]
+                    cropped_path.parent.mkdir(exist_ok = True)
+                    edu.save_image(cropped_image, cropped_path)
+
+                rel_cropped_path = cropped_path.relative_to(self.root)
+                csv.append("{},{}".format(video_id, rel_cropped_path))
+
+            csv_path = Path(self.root).joinpath("cropped.csv")
+            with open(csv_path, "w") as f:
+                f.write("\n".join(csv)+"\n")
+
+            for a in ['baseball_pitch', 'baseball_swing', 'bench_press',
+                    'bowl', 'clean_and_jerk', 'golf_swing', 'jump_rope',
+                    'jumping_jacks', 'pullup', 'pushup', 'situp', 'squat',
+                    'strum_guitar', 'tennis_forehand', 'tennis_serve']:
+                # all
+                action_indices = [i for i in range(len(self)) if self.labels["action"][i] == a]
+                action_csv = [csv[i] for i in action_indices]
+                csv_path = Path(self.root).joinpath("cropped_"+a+".csv")
+                with open(csv_path, "w") as f:
+                    f.write("\n".join(action_csv)+"\n")
+
+                # train
+                action_indices = [i for i in range(len(self))
+                        if self.labels["action"][i] == a and self.labels["train"][i]]
+                action_csv = [csv[i] for i in action_indices]
+                csv_path = Path(self.root).joinpath("cropped_"+a+"_train.csv")
+                with open(csv_path, "w") as f:
+                    f.write("\n".join(action_csv)+"\n")
+
+                # test
+                action_indices = [i for i in range(len(self))
+                        if self.labels["action"][i] == a and not self.labels["train"][i]]
+                action_csv = [csv[i] for i in action_indices]
+                csv_path = Path(self.root).joinpath("cropped_"+a+"_test.csv")
+                with open(csv_path, "w") as f:
+                    f.write("\n".join(action_csv)+"\n")
+            edu.mark_prepared(self.crop_root)
+
+
+    def _get_cropped_example(self, i):
         example = super().get_example(i)
         image = edu.load_image(os.path.join(self.root, example["image_path"]))
         example["image"] = edu.quadratic_crop(image, example["bbox"], alpha = 1.0)
+        return example
+
+
+    def get_example(self, i):
+        example = dict()
+        for k in self.labels:
+            example[k] = self.labels[k][i]
+        cropped_path = example["image_path"].replace("frames", "cropped")
+        example["image"] = edu.load_image(os.path.join(self.root, cropped_path))
         example["image"] = edu.resize_float32(example["image"], self.config.get("spatial_size", 256))
         return example
