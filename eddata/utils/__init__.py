@@ -2,6 +2,17 @@ import os
 from pathlib import Path
 from edflow.iterators.batches import load_image, DatasetMixin, resize_float32, save_image
 import numpy as np
+from tqdm import tqdm
+import urllib
+
+
+def reporthook(bar):
+    """tqdm progress bar for downloads."""
+    def hook(b = 1, bsize = 1, tsize = None):
+        if tsize is not None:
+            bar.total = tsize
+        bar.update(b * bsize - bar.n)
+    return hook
 
 
 def get_root(name):
@@ -25,6 +36,22 @@ def prompt_download(file_, source, target_dir):
         print("Please download '{}' from '{}' to '{}'.".format(file_, source, targetpath))
         input("Press Enter when done...")
     return targetpath
+
+
+def download_url(file_, url, target_dir):
+    targetpath = os.path.join(target_dir, file_)
+    os.makedirs(target_dir, exist_ok = True)
+    with tqdm(unit = "B", unit_scale = True, unit_divisor = 1024, miniters = 1, desc = file_) as bar:
+        urllib.request.urlretrieve(url, targetpath, reporthook = reporthook(bar))
+    return targetpath
+
+
+def download_urls(urls, target_dir):
+    paths = dict()
+    for fname, url in urls.items():
+        outpath = download_url(fname, url, target_dir)
+        paths[fname] = outpath
+    return paths
 
 
 def quadratic_crop(x, bbox, alpha = 1.0):

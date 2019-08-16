@@ -114,6 +114,12 @@ class PennActionCropped(PennAction):
             csv_path = Path(self.root).joinpath("cropped.csv")
             with open(csv_path, "w") as f:
                 f.write("\n".join(csv)+"\n")
+            csv_train = [csv[i] for i in range(len(self)) if self.labels["train"][i]]
+            with open(Path(self.root).joinpath("cropped_train.csv"), "w") as f:
+                f.write("\n".join(csv_train)+"\n")
+            csv_test = [csv[i] for i in range(len(self)) if not self.labels["train"][i]]
+            with open(Path(self.root).joinpath("cropped_test.csv"), "w") as f:
+                f.write("\n".join(csv_test)+"\n")
 
             for a in ['baseball_pitch', 'baseball_swing', 'bench_press',
                     'bowl', 'clean_and_jerk', 'golf_swing', 'jump_rope',
@@ -159,3 +165,8 @@ class PennActionCropped(PennAction):
         example["image"] = edu.load_image(os.path.join(self.root, cropped_path))
         example["image"] = edu.resize_float32(example["image"], self.config.get("spatial_size", 256))
         return example
+
+
+if __name__ == "__main__":
+    d1 = PennAction()
+    d2 = PennActionCropped()
