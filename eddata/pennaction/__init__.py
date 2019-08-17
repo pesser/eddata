@@ -7,7 +7,7 @@ from tqdm import tqdm, trange
 
 
 class PennAction(edu.DatasetMixin):
-    def __init__(self, config = None):
+    def __init__(self, config=None):
         self.config = config or dict()
         self._prepare()
         self._load()
@@ -20,40 +20,53 @@ class PennAction(edu.DatasetMixin):
             root = Path(self.root)
             if not root.joinpath("Penn_Action").is_dir():
                 tarpath = edu.prompt_download(
-                        file_ = "Penn_Action.tar.gz",
-                        source = "https://upenn.app.box.com/v/PennAction",
-                        target_dir = root)
+                    file_="Penn_Action.tar.gz",
+                    source="https://upenn.app.box.com/v/PennAction",
+                    target_dir=root,
+                )
                 print("Extracting {}.".format(tarpath))
                 with tarfile.open(tarpath, "r") as f:
-                    f.extractall(path = root)
+                    f.extractall(path=root)
                 print("Done extracting.")
 
             print("Generating labels.")
-            label_keys = ['action', 'bbox', 'dimensions', 'nframes', 'pose',
-                          'train', 'visibility', 'x', 'y', 'video_id', 'image_path']
+            label_keys = [
+                "action",
+                "bbox",
+                "dimensions",
+                "nframes",
+                "pose",
+                "train",
+                "visibility",
+                "x",
+                "y",
+                "video_id",
+                "image_path",
+            ]
             labels = dict((k, list()) for k in label_keys)
 
             label_dir = root.joinpath("Penn_Action", "labels")
             video_ids = sorted(root.joinpath("Penn_Action", "frames").iterdir())
-            exclude = set(["1154", "1865"]) # missing bounding boxes
+            exclude = set(["1154", "1865"])  # missing bounding boxes
             for video_id in tqdm(video_ids):
                 if video_id.name in exclude:
                     continue
                 frames = sorted(video_id.glob("*.jpg"))
-                label_file = label_dir.joinpath(video_id.name+".mat")
+                label_file = label_dir.joinpath(video_id.name + ".mat")
                 label_file = loadmat(label_file)
                 frame_labels = dict()
                 for i, frame_path in enumerate(frames):
                     frame_labels = {
-                            "action": str(label_file["action"][0]),
-                            "bbox": np.array(label_file["bbox"][i]),
-                            "dimensions": np.array(label_file["dimensions"][0]),
-                            "nframes": label_file["nframes"][0][0],
-                            "pose": str(label_file["pose"][0]),
-                            "train": label_file["train"][0][0] == 1,
-                            "visibility": label_file["visibility"][i],
-                            "x": label_file["x"][i],
-                            "y": label_file["y"][i]}
+                        "action": str(label_file["action"][0]),
+                        "bbox": np.array(label_file["bbox"][i]),
+                        "dimensions": np.array(label_file["dimensions"][0]),
+                        "nframes": label_file["nframes"][0][0],
+                        "pose": str(label_file["pose"][0]),
+                        "train": label_file["train"][0][0] == 1,
+                        "visibility": label_file["visibility"][i],
+                        "x": label_file["x"][i],
+                        "y": label_file["y"][i],
+                    }
                     frame_labels["video_id"] = video_id.name
                     frame_labels["image_path"] = str(frame_path.relative_to(root))
                     for k in label_keys:
@@ -85,13 +98,13 @@ class PennAction(edu.DatasetMixin):
 
 
 class PennActionCropped(PennAction):
-    def __init__(self, config = None):
+    def __init__(self, config=None):
         super().__init__(config)
         self._prepare_crops()
 
     def _prepare_crops(self):
         self.crop_root = Path(self.root).joinpath("Penn_Action", "cropped")
-        self.crop_root.mkdir(exist_ok = True)
+        self.crop_root.mkdir(exist_ok=True)
         if not edu.is_prepared(self.crop_root):
             frames_root = Path(self.root).joinpath("Penn_Action", "frames")
             csv = list()
@@ -105,7 +118,7 @@ class PennActionCropped(PennAction):
                 if not cropped_path.exists():
                     cropped_example = self._get_cropped_example(i)
                     cropped_image = cropped_example["image"]
-                    cropped_path.parent.mkdir(exist_ok = True)
+                    cropped_path.parent.mkdir(exist_ok=True)
                     edu.save_image(cropped_image, cropped_path)
 
                 rel_cropped_path = cropped_path.relative_to(self.root)
@@ -113,49 +126,68 @@ class PennActionCropped(PennAction):
 
             csv_path = Path(self.root).joinpath("cropped.csv")
             with open(csv_path, "w") as f:
-                f.write("\n".join(csv)+"\n")
+                f.write("\n".join(csv) + "\n")
             csv_train = [csv[i] for i in range(len(self)) if self.labels["train"][i]]
             with open(Path(self.root).joinpath("cropped_train.csv"), "w") as f:
-                f.write("\n".join(csv_train)+"\n")
+                f.write("\n".join(csv_train) + "\n")
             csv_test = [csv[i] for i in range(len(self)) if not self.labels["train"][i]]
             with open(Path(self.root).joinpath("cropped_test.csv"), "w") as f:
-                f.write("\n".join(csv_test)+"\n")
+                f.write("\n".join(csv_test) + "\n")
 
-            for a in ['baseball_pitch', 'baseball_swing', 'bench_press',
-                    'bowl', 'clean_and_jerk', 'golf_swing', 'jump_rope',
-                    'jumping_jacks', 'pullup', 'pushup', 'situp', 'squat',
-                    'strum_guitar', 'tennis_forehand', 'tennis_serve']:
+            for a in [
+                "baseball_pitch",
+                "baseball_swing",
+                "bench_press",
+                "bowl",
+                "clean_and_jerk",
+                "golf_swing",
+                "jump_rope",
+                "jumping_jacks",
+                "pullup",
+                "pushup",
+                "situp",
+                "squat",
+                "strum_guitar",
+                "tennis_forehand",
+                "tennis_serve",
+            ]:
                 # all
-                action_indices = [i for i in range(len(self)) if self.labels["action"][i] == a]
+                action_indices = [
+                    i for i in range(len(self)) if self.labels["action"][i] == a
+                ]
                 action_csv = [csv[i] for i in action_indices]
-                csv_path = Path(self.root).joinpath("cropped_"+a+".csv")
+                csv_path = Path(self.root).joinpath("cropped_" + a + ".csv")
                 with open(csv_path, "w") as f:
-                    f.write("\n".join(action_csv)+"\n")
+                    f.write("\n".join(action_csv) + "\n")
 
                 # train
-                action_indices = [i for i in range(len(self))
-                        if self.labels["action"][i] == a and self.labels["train"][i]]
+                action_indices = [
+                    i
+                    for i in range(len(self))
+                    if self.labels["action"][i] == a and self.labels["train"][i]
+                ]
                 action_csv = [csv[i] for i in action_indices]
-                csv_path = Path(self.root).joinpath("cropped_"+a+"_train.csv")
+                csv_path = Path(self.root).joinpath("cropped_" + a + "_train.csv")
                 with open(csv_path, "w") as f:
-                    f.write("\n".join(action_csv)+"\n")
+                    f.write("\n".join(action_csv) + "\n")
 
                 # test
-                action_indices = [i for i in range(len(self))
-                        if self.labels["action"][i] == a and not self.labels["train"][i]]
+                action_indices = [
+                    i
+                    for i in range(len(self))
+                    if self.labels["action"][i] == a and not self.labels["train"][i]
+                ]
                 action_csv = [csv[i] for i in action_indices]
-                csv_path = Path(self.root).joinpath("cropped_"+a+"_test.csv")
+                csv_path = Path(self.root).joinpath("cropped_" + a + "_test.csv")
                 with open(csv_path, "w") as f:
-                    f.write("\n".join(action_csv)+"\n")
+                    f.write("\n".join(action_csv) + "\n")
             edu.mark_prepared(self.crop_root)
-
 
     def _get_cropped_example(self, i):
         example = super().get_example(i)
         image = edu.load_image(os.path.join(self.root, example["image_path"]))
-        example["image"] = edu.quadratic_crop(image, example["bbox"], alpha = 1.0)
+        example["image"] = edu.quadratic_crop(image, example["bbox"], alpha=1.0)
         return example
-
 
     def get_example(self, i):
         example = dict()
@@ -163,7 +195,9 @@ class PennActionCropped(PennAction):
             example[k] = self.labels[k][i]
         cropped_path = example["image_path"].replace("frames", "cropped")
         example["image"] = edu.load_image(os.path.join(self.root, cropped_path))
-        example["image"] = edu.resize_float32(example["image"], self.config.get("spatial_size", 256))
+        example["image"] = edu.resize_float32(
+            example["image"], self.config.get("spatial_size", 256)
+        )
         return example
 
 

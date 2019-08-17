@@ -12,5 +12,5 @@ if __name__ == "__main__":
     print(sorted(set(d.labels["action"])))
 
     d = PennActionCropped()
-    batch = np.stack([d[10*i]["image"] for i in range(16)])
+    batch = np.stack([d[10 * i]["image"] for i in range(16)])
     plot_batch(batch, "pennaction_examples.png")

@@ -27,7 +27,7 @@ class FashionMNIST(edu.DatasetMixin):
         TEST_LABELS="t10k-labels-idx1-ubyte.gz",
     )
 
-    def __init__(self, config = None):
+    def __init__(self, config=None):
         self.config = config or dict()
         self.logger = edu.get_logger(self)
         self._prepare()
