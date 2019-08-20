@@ -4,6 +4,7 @@ import numpy as np
 import eddata.utils as edu
 from scipy.io import loadmat
 from tqdm import tqdm, trange
+from matplotlib import pyplot as plt
 
 
 class PennAction(edu.DatasetMixin):
@@ -95,6 +96,12 @@ class PennAction(edu.DatasetMixin):
 
     def __len__(self):
         return self._length
+
+
+def preprocess_iuv(iuv_path):
+    IUV = edu.load_image(iuv_path)
+    I = IUV[:, :, 0]
+    return I
 
 
 class PennActionCropped(PennAction):
@@ -201,6 +208,26 @@ class PennActionCropped(PennAction):
         return example
 
 
+class PennActionDenseposed(PennAction):
+    def get_example(self, i):
+        example = super(PennActionDenseposed, self).get_example(i)
+        cropped_path = example["image_path"].replace("frames", "cropped")
+        image = edu.load_image(os.path.join(self.root, cropped_path))
+        mask_path = cropped_path.replace("cropped", "cropped_densepose")
+        p, ext = os.path.splitext(mask_path)
+        mask_path = "{}_IUV.png".format(p)
+        mask = edu.load_image(os.path.join(self.root, mask_path))
+        mask = mask[:, :, 0]
+        image *= np.expand_dims(np.logical_not(mask == -1), -1)
+        image = edu.resize_float32(image, self.config.get("spatial_size", 256))
+        example["image"] = image
+        return example
+
+
 if __name__ == "__main__":
     d1 = PennAction()
     d2 = PennActionCropped()
+    d3 = PennActionDenseposed()
+    e = d3.get_example(0)["image"]
+    plt.imshow(e)
+    plt.savefig("e3.png")
