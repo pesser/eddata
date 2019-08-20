@@ -4,7 +4,6 @@ import numpy as np
 import eddata.utils as edu
 from scipy.io import loadmat
 from tqdm import tqdm, trange
-from matplotlib import pyplot as plt
 
 
 class PennAction(edu.DatasetMixin):
@@ -225,6 +224,8 @@ class PennActionDenseposed(PennAction):
 
 
 if __name__ == "__main__":
+    from matplotlib import pyplot as plt
+
     d1 = PennAction()
     d2 = PennActionCropped()
     d3 = PennActionDenseposed()
