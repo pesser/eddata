@@ -8,14 +8,32 @@ import numpy as np
 
 class StochasticPairsWithMask(DatasetMixin, PRNGMixin):
     def __init__(self, config):
-        """
-
-        config :{
-            mask_label : 1 # use mask label 1 for masking. can be a float
-            invert_mask : False # invert mask. This is usefull if it is easier to just provide the background
-            data_flip : False # flip data randomly
+        """config has to include
+        config: {
+            "data_root": "foo",
+            "data_csv": "train.csv",
+            "spatial_size" : 256
         }
 
+        optional config parameters:
+        config: {
+            "mask_label" : 1,        # use mask label 1 for masking. can be a float. Default `1`.
+            "invert_mask" : False,   # invert mask. This is usefull if it is easier to just provide the background. Default `False`.
+            "data_flip" : False,     # flip data randomly. Default `False`.
+            "avoid_identity" : False, # avoid the identity. Default `False`.
+        }
+
+        data_csv has to have the following layout:
+        id,image_path_from_data_root,mask_path_from_data_root
+
+        for example:
+        1,frames/01/00001.jpg,mask/01/0001.png
+        1,frames/01/00002.jpg,mask/01/0002.png
+        ...
+        2,frames/02/00001.jpg,mask/02/0001.png
+        2,frames/02/00002.jpg,mask/02/0002.png
+
+        If the csv has more columns, the other columns will be ignored.
         Parameters
         ----------
         config: dict with options. See above
@@ -30,7 +48,7 @@ class StochasticPairsWithMask(DatasetMixin, PRNGMixin):
         with open(self.csv) as f:
             lines = f.read().splitlines()
         self._length = len(lines)
-        lines = [l.split(",", 3) for l in lines]
+        lines = [l.split(",")[:3] for l in lines]
         self.labels = {
             "character_id": [l[0] for l in lines],
             "relative_file_path_": [l[1] for l in lines],
@@ -43,7 +61,7 @@ class StochasticPairsWithMask(DatasetMixin, PRNGMixin):
     def __len__(self):
         return self._length
 
-    def preprocess_image(self, image_path, mask_path):
+    def preprocess_image(self, image_path: str, mask_path: str) -> np.ndarray:
         image = load_image(image_path)
         mask = load_image(mask_path)
 
@@ -57,7 +75,7 @@ class StochasticPairsWithMask(DatasetMixin, PRNGMixin):
                 image = np.flip(image, axis=1)
         return image
 
-    def get_example(self, i):
+    def get_example(self, i) -> dict:
         choices = self.labels["choices"][i]
         if self.avoid_identity and len(choices) > 1:
             choices = [c for c in choices if c != i]
@@ -73,6 +91,34 @@ class StochasticPairsWithMask(DatasetMixin, PRNGMixin):
 
 class StochasticPairs(DatasetMixin, PRNGMixin):
     def __init__(self, config):
+        """config has to include
+        config: {
+            "data_root": "foo",
+            "data_csv": "train.csv",
+            "spatial_size" : 256
+        }
+
+        optional config parameters:
+        config: {
+            "data_flip" : False,     # flip data randomly. Default `False`.
+            "avoid_identity" : False, # avoid the identity. Default `False`.
+        }
+
+        data_csv has to have the following layout:
+        id,image_path_from_data_root
+
+        for example:
+        1,frames/01/00001.jpg
+        1,frames/01/00002.jpg
+        ...
+        2,frames/02/00001.jpg
+        2,frames/02/00002.jpg
+
+        If the csv has more columns, the other columns will be ignored.
+        Parameters
+        ----------
+        config: dict with options. See above
+        """
         self.size = config["spatial_size"]
         self.root = config["data_root"]
         self.csv = config["data_csv"]
@@ -81,7 +127,7 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         with open(self.csv) as f:
             lines = f.read().splitlines()
         self._length = len(lines)
-        lines = [l.split(",", 1) for l in lines]
+        lines = [l.split(",")[:2] for l in lines]
         self.labels = {
             "character_id": [l[0] for l in lines],
             "relative_file_path_": [l[1] for l in lines],
