@@ -47,6 +47,9 @@ class Test_StochasticPairs(object):
         unique_file_paths = set(dset.labels["relative_file_path_"])
         assert set(["im.png"]) == unique_file_paths
 
+        unique_file_paths = set(dset.labels["file_path_"])
+        assert set([os.path.join(p, "im.png")]) == unique_file_paths
+
 
 class Test_StochasticPairsWithMask(object):
     def test_load_csv(self, tmpdir):
@@ -64,8 +67,14 @@ class Test_StochasticPairsWithMask(object):
         unique_file_paths = set(dset.labels["relative_file_path_"])
         assert set(["im.png"]) == unique_file_paths
 
+        unique_file_paths = set(dset.labels["file_path_"])
+        assert set([os.path.join(p, "im.png")]) == unique_file_paths
+
         unique_mask_paths = set(dset.labels["relative_mask_path_"])
         assert set(["mask.png"]) == unique_mask_paths
+
+        unique_mask_paths = set(dset.labels["mask_path_"])
+        assert set([os.path.join(p, "mask.png")]) == unique_mask_paths
 
     def test_csv_has_more_columns(self, tmpdir):
         p = tmpdir.mkdir("data")
