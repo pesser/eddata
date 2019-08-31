@@ -230,14 +230,33 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         self.labels = add_choices(self.labels)
 
     def make_labels(self):
-        lines = [l.split(",")[:4] for l in lines]
-        self.labels = {
-            "character_id": [l[0] for l in lines],
-            "relative_file_path_": [l[1] for l in lines],
-            "file_path_": [os.path.join(self.root, l[1]) for l in lines],
-            "relative_segments_path_": [l[3] for l in lines],
-            "segments_path_": [os.path.join(self.root, l[3]) for l in lines],
-        }
+        expected_data_header = [
+            "character_id",
+            "relative_file_path_",
+            "relative_mask_path_",
+            "relative_segments_path_",
+        ]
+        header = self.config.get("data_csv_header", expected_data_header)
+        if header == "from_csv":
+            raise NotImplementedError("from csv is not implemented yet")
+        else:
+            with open(self.csv) as f:
+                lines = f.read().splitlines()
+            lines = [l.split(",")[:3] for l in lines]
+
+            self.labels = {
+                label_name: [l[i] for l in lines]
+                for label_name, i in zip(header, range(len(header)))
+            }
+            for label_name, i in zip(header, range(len(header))):
+                if "relative_" in label_name:
+                    label_update = {
+                        label_name.replace("relative_", ""): [
+                            os.path.join(self.root, l[i]) for l in lines
+                        ]
+                    }
+                    self.labels.update(label_update)
+            self._length = len(lines)
 
     def __len__(self):
         return self._length
@@ -280,6 +299,35 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
 
     def __len__(self):
         return self._length
+
+    def make_labels(self):
+        expected_data_header = [
+            "character_id",
+            "relative_file_path_",
+            "relative_mask_path_",
+            "relative_segments_path_",
+        ]
+        header = self.config.get("data_csv_header", expected_data_header)
+        if header == "from_csv":
+            raise NotImplementedError("from csv is not implemented yet")
+        else:
+            with open(self.csv) as f:
+                lines = f.read().splitlines()
+            lines = [l.split(",")[:3] for l in lines]
+
+            self.labels = {
+                label_name: [l[i] for l in lines]
+                for label_name, i in zip(header, range(len(header)))
+            }
+            for label_name, i in zip(header, range(len(header))):
+                if "relative_" in label_name:
+                    label_update = {
+                        label_name.replace("relative_", ""): [
+                            os.path.join(self.root, l[i]) for l in lines
+                        ]
+                    }
+                    self.labels.update(label_update)
+            self._length = len(lines)
 
     def preprocess_image(self, image_path: str, mask_path: str) -> np.ndarray:
         image = load_image(image_path)
