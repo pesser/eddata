@@ -55,7 +55,7 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         else:
             with open(self.csv) as f:
                 lines = f.read().splitlines()
-            lines = [l.split(",")[:2] for l in lines]
+            lines = [l.split(",") for l in lines]
 
             self.labels = {
                 label_name: [l[i] for l in lines]
@@ -140,7 +140,7 @@ class StochasticPairsWithMask(StochasticPairs):
         else:
             with open(self.csv) as f:
                 lines = f.read().splitlines()
-            lines = [l.split(",")[:3] for l in lines]
+            lines = [l.split(",") for l in lines]
 
             self.labels = {
                 label_name: [l[i] for l in lines]
@@ -218,23 +218,14 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
                 ----------
                 config: dict with options. See above
                 """
-        self.size = config["spatial_size"]
-        self.root = config["data_root"]
-        self.csv = config["data_csv"]
-        self.avoid_identity = config.get("data_avoid_identity", True)
-        self.flip = config.get("data_flip", False)
-        with open(self.csv) as f:
-            lines = f.read().splitlines()
-
-        self._length = len(lines)
-        self.labels = add_choices(self.labels)
+        super(StochasticPairsWithSuperpixels, self).__init__(config)
 
     def make_labels(self):
         expected_data_header = [
             "character_id",
             "relative_file_path_",
             "relative_mask_path_",
-            "relative_segments_path_",
+            "relative_segment_path_",
         ]
         header = self.config.get("data_csv_header", expected_data_header)
         if header == "from_csv":
@@ -242,7 +233,7 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         else:
             with open(self.csv) as f:
                 lines = f.read().splitlines()
-            lines = [l.split(",")[:3] for l in lines]
+            lines = [l.split(",") for l in lines]
 
             self.labels = {
                 label_name: [l[i] for l in lines]
