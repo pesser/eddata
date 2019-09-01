@@ -328,8 +328,8 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         return {
             "view0": view0,
             "view1": view1,
-            "segments0": superpixel_segments0,
-            "segments1": superpixel_segments1,
+            "segments0": superpixel_segments0.astype(np.int32),
+            "segments1": superpixel_segments1.astype(np.int32),
         }
 
 
@@ -413,8 +413,8 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         example = {
             "view0": view0,
             "view1": view1,
-            "segments0": superpixel_segments0,
-            "segments1": superpixel_segments1,
+            "segments0": superpixel_segments0.astype(np.int32),
+            "segments1": superpixel_segments1.astype(np.int32),
         }
         return example
 
