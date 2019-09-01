@@ -316,6 +316,8 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         superpixel_segments1 = resize_labels(
             superpixel_segments1, (self.size, self.size)
         )
+        superpixel_segments0 = np.expand_dims(superpixel_segments0, -1)
+        superpixel_segments1 = np.expand_dims(superpixel_segments1, -1)
         if self.flip:
             if self.prng.choice([True, False]):
                 view0 = np.flip(view0, axis=1)
@@ -401,6 +403,8 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         superpixel_segments1 = resize_labels(
             superpixel_segments1, (self.size, self.size)
         )
+        superpixel_segments0 = np.expand_dims(superpixel_segments0, -1)
+        superpixel_segments1 = np.expand_dims(superpixel_segments1, -1)
         if self.flip:
             if self.prng.choice([True, False]):
                 view0 = np.flip(view0, axis=1)
