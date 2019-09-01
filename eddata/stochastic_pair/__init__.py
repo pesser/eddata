@@ -4,6 +4,7 @@ from edflow.iterators.batches import resize_float32 as resize
 from edflow.iterators.batches import load_image
 import os
 import numpy as np
+import cv2
 
 
 class StochasticPairs(DatasetMixin, PRNGMixin):
@@ -264,30 +265,31 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         j = self.prng.choice(choices)
 
         view0 = self.preprocess_image(self.labels["file_path_"][i])
+        view1 = self.preprocess_image(self.labels["file_path_"][j])
+        superpixel_segments0 = cv2.imread(
+            self.labels["segment_path_"][i], -1
+        )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments1 = cv2.imread(
+            self.labels["segment_path_"][j], -1
+        )  # cv2 is necessary because segments can be 16 bit
         if self.flip:
             if self.prng.choice([True, False]):
                 view0 = np.flip(view0, axis=1)
+                superpixel_segments0 = np.flip(superpixel_segments0, axis=1)
 
-        view1 = self.preprocess_image(self.labels["file_path_"][j])
         if self.flip:
             if self.prng.choice([True, False]):
                 view1 = np.flip(view1, axis=1)
-
-        superpixel_segments0 = self.preprocess_image(self.labels["segments_path_"][i])
-        superpixel_segments1 = self.preprocess_image(self.labels["segments_path_"][j])
-
+                superpixel_segments1 = np.flip(superpixel_segments1, axis=1)
         return {
             "view0": view0,
             "view1": view1,
-            "superpixel_segments0": superpixel_segments0,
-            "superpixel_segments1": superpixel_segments1,
+            "segments0": superpixel_segments0,
+            "segments1": superpixel_segments1,
         }
 
 
 class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
-    def __init__(self, config):
-        super(StochasticPairsWithMask, self).__init__(config)
-
     def __len__(self):
         return self._length
 
@@ -296,7 +298,7 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
             "character_id",
             "relative_file_path_",
             "relative_mask_path_",
-            "relative_segments_path_",
+            "relative_segment_path_",
         ]
         header = self.config.get("data_csv_header", expected_data_header)
         if header == "from_csv":
@@ -304,7 +306,7 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         else:
             with open(self.csv) as f:
                 lines = f.read().splitlines()
-            lines = [l.split(",")[:3] for l in lines]
+            lines = [l.split(",") for l in lines]
 
             self.labels = {
                 label_name: [l[i] for l in lines]
@@ -337,11 +339,18 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
             choices = [c for c in choices if c != i]
         j = self.prng.choice(choices)
 
-        view0 = self.preprocess_image(self.labels["file_path_"][i])
-        view1 = self.preprocess_image(self.labels["file_path_"][j])
-        superpixel_segments0 = self.preprocess_image(self.labels["segments_path_"][i])
-        superpixel_segments1 = self.preprocess_image(self.labels["segments_path_"][j])
-
+        view0 = self.preprocess_image(
+            self.labels["file_path_"][i], self.labels["mask_path_"][i]
+        )
+        view1 = self.preprocess_image(
+            self.labels["file_path_"][j], self.labels["mask_path_"][j]
+        )
+        superpixel_segments0 = cv2.imread(
+            self.labels["segment_path_"][i], -1
+        )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments1 = cv2.imread(
+            self.labels["segment_path_"][j], -1
+        )  # cv2 is necessary because segments can be 16 bit
         if self.flip:
             if self.prng.choice([True, False]):
                 view0 = np.flip(view0, axis=1)
@@ -354,8 +363,8 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         example = {
             "view0": view0,
             "view1": view1,
-            "superpixel_segments0": superpixel_segments0,
-            "superpixel_segments1": superpixel_segments1,
+            "segments0": superpixel_segments0,
+            "segments1": superpixel_segments1,
         }
         return example
 
