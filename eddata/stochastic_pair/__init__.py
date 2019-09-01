@@ -7,6 +7,44 @@ import numpy as np
 import cv2
 
 
+def resize_labels(labels, size):
+    """Reshape labels image to target size.
+
+    Parameters
+    ----------
+    labels : np.ndarray
+        [H, W] or [N, H, W] - shaped array where each pixel is an `int` giving a label id for the segmentation. In case of [N, H, W],
+        each slice along the first dimension is treated as an independent label image.
+    size : tuple of ints
+        Target shape as tuple of ints
+
+    Returns
+    -------
+    reshaped_labels : np.ndarray
+        [size[0], size[1]] or [N, size[0], size[1]]-shaped array
+
+    Raises
+    ------
+    ValueError
+        if labels does not have valid shape
+    """
+    # TODO: make this work for a single image
+    if len(labels.shape) == 2:
+        return cv2.resize(labels, size, 0, 0, cv2.INTER_NEAREST)
+    elif len(labels.shape) == 3:
+        label_list = np.split(labels, labels.shape[0], axis=0)
+        label_list = list(
+            map(
+                lambda x: cv2.resize(np.squeeze(x), size, 0, 0, cv2.INTER_NEAREST),
+                label_list,
+            )
+        )
+        labels = np.stack(label_list, axis=0)
+        return labels
+    else:
+        raise ValueError("unsupported shape for labels : {}".format(labels.shape))
+
+
 class StochasticPairs(DatasetMixin, PRNGMixin):
     def __init__(self, config):
         """config has to include
@@ -269,9 +307,15 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         superpixel_segments0 = cv2.imread(
             self.labels["segment_path_"][i], -1
         )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments0 = resize_labels(
+            superpixel_segments0, (self.size, self.size)
+        )
         superpixel_segments1 = cv2.imread(
             self.labels["segment_path_"][j], -1
         )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments1 = resize_labels(
+            superpixel_segments1, (self.size, self.size)
+        )
         if self.flip:
             if self.prng.choice([True, False]):
                 view0 = np.flip(view0, axis=1)
@@ -348,9 +392,15 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         superpixel_segments0 = cv2.imread(
             self.labels["segment_path_"][i], -1
         )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments0 = resize_labels(
+            superpixel_segments0, (self.size, self.size)
+        )
         superpixel_segments1 = cv2.imread(
             self.labels["segment_path_"][j], -1
         )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments1 = resize_labels(
+            superpixel_segments1, (self.size, self.size)
+        )
         if self.flip:
             if self.prng.choice([True, False]):
                 view0 = np.flip(view0, axis=1)
