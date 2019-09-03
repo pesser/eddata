@@ -44,11 +44,17 @@ class VIP(edu.DatasetMixin):
                 df_global_ids = self.make_global_human_ids()
                 df_global_ids.to_csv(global_ids_csv, index=False)
             df_labels = df_empty(
-                ["id", "relative_file_path_", "relative_human_id_label_path_"]
+                [
+                    "id",
+                    "id_within_video",
+                    "relative_file_path_",
+                    "relative_human_id_label_path_",
+                ]
             )
             for _, (global_id, id_within_video, video) in df_global_ids.iterrows():
                 new_data = {
                     "id": global_id,
+                    "id_within_video": id_within_video,
                     "relative_file_path_": self.list_image_files(video),
                     "relative_human_id_label_path_": self.list_human_instance_segmentation_files(
                         video
@@ -174,13 +180,76 @@ class VIP(edu.DatasetMixin):
         return videos
 
 
+class VIPInstanceCropped(VIP):
+    def __init__(self, config):
+        """
+        Examples
+        --------
+
+            # mask out background - crop tight around instance
+            d = VIPInstanceCropped({"masked": True})
+            example = d.get_example(0)
+            image = example["image"]
+            plt.imshow((np.squeeze(image) + 1.0) / 2)
+            plt.savefig("e1.png")
+
+            # keep background - crop tight around instance
+            d = VIPInstanceCropped({"masked": False})
+            example = d.get_example(0)
+            image = example["image"]
+            plt.imshow((np.squeeze(image) + 1.0) / 2)
+            plt.savefig("e2.png")
+
+        :param config:
+        """
+        super(VIPInstanceCropped, self).__init__(config)
+        self._masked = config.get("masked")
+
+    def get_example(self, i):
+        example = super(VIPInstanceCropped, self).get_example(i)
+        instance_id = example["id_within_video"]
+        image_path = example["file_path_"]
+        instance_mask_path = example["human_id_label_path_"]
+        image = edu.load_image(image_path)
+        instance_mask = cv2.imread(instance_mask_path, -1)
+        instance_mask = instance_id == instance_mask
+
+        x, y, w, h = cv2.boundingRect(instance_mask.astype(np.uint8))
+        image_crop = image[y : (y + h), x : (x + h), :]
+        instance_mask_crop = instance_mask[y : (y + h), x : (x + h)]
+
+        if self._masked:
+            image = image_crop * np.expand_dims(instance_mask_crop, -1)
+        else:
+            image = image_crop
+
+        image = edu.resize_float32(image, self.config.get("spatial_size", 256))
+        example["image"] = image
+        return example
+
+
+class VIPInstanceCroppedStochasticPair(VIPInstanceCropped):
+    pass
+
+
 if __name__ == "__main__":
-    from matplotlib import pyplot as plt
+    from pylab import *
     import cv2
 
-    config = {""}
     d = VIP()
     example = d.get_example(0)
     image = cv2.imread(example["file_path_"])
     plt.imshow(image)
     plt.savefig("e0.png")
+
+    d = VIPInstanceCropped({"masked": True})
+    example = d.get_example(0)
+    image = example["image"]
+    plt.imshow((np.squeeze(image) + 1.0) / 2)
+    plt.savefig("e1.png")
+
+    d = VIPInstanceCropped({"masked": False})
+    example = d.get_example(0)
+    image = example["image"]
+    plt.imshow((np.squeeze(image) + 1.0) / 2)
+    plt.savefig("e2.png")
