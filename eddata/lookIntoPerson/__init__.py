@@ -4,12 +4,18 @@ from pathlib import Path
 import numpy as np
 import eddata.utils as edu
 import traceback
+import cv2
 
 from eddata.utils import df_empty
+from edflow.util import PRNGMixin
 
 
 class VIP(edu.DatasetMixin):
     def __init__(self, config=None):
+        # TODO: it looks like instance annotations are not consistent within videos. This is a problem for the stochastic pair case
+        # for example video 17, frame 826 -> frame 851. One instance is leaving the frame here
+        # but the annotation marks the instance remaining in the frame as instance 1 in 851 and instance 2 in 826
+        # one would have to use reid manually on the instances to get the assignment within the video
         """
 
         References:
@@ -28,6 +34,7 @@ class VIP(edu.DatasetMixin):
         :param config:
         """
         self.config = config or dict()
+        self.size = config.get("spatial_size", 256)
         self._prepare()
         self._load()
 
@@ -36,10 +43,13 @@ class VIP(edu.DatasetMixin):
         self._label_path = Path(self.root).joinpath("eddata_labels.csv")
         if not edu.is_prepared(self.root):
             # dataframe layout:
-            # global_id | id_within_video | videoXXX
+            # global_id | id_within_video | videoXXX | frame
             global_ids_csv = os.path.join(self.root, "global_ids.csv")
             if os.path.exists(global_ids_csv):
-                df_global_ids = pd.read_csv(global_ids_csv)
+                columns = ["global_id", "id_within_video", "video", "frame"]
+                dtypes = [np.int64, np.int64, str, str]
+                dtypes = {k: v for k, v, in zip(columns, dtypes)}
+                df_global_ids = pd.read_csv(global_ids_csv, dtype=dtypes)
             else:
                 df_global_ids = self.make_global_human_ids()
                 df_global_ids.to_csv(global_ids_csv, index=False)
@@ -51,13 +61,16 @@ class VIP(edu.DatasetMixin):
                     "relative_human_id_label_path_",
                 ]
             )
-            for _, (global_id, id_within_video, video) in df_global_ids.iterrows():
+            for (
+                _,
+                (global_id, id_within_video, video, frame),
+            ) in df_global_ids.iterrows():
                 new_data = {
                     "id": global_id,
                     "id_within_video": id_within_video,
-                    "relative_file_path_": self.list_image_files(video),
-                    "relative_human_id_label_path_": self.list_human_instance_segmentation_files(
-                        video
+                    "relative_file_path_": self.get_image_file(video, frame),
+                    "relative_human_id_label_path_": self.get_human_instance_segmentation_file(
+                        video, frame
                     ),
                 }
                 new_data = edu.listify_dict(new_data)
@@ -72,36 +85,44 @@ class VIP(edu.DatasetMixin):
     def make_global_human_ids(self):
         base_path = os.path.join(self.root, "VIP_Fine")
         global_human_id = 0
-        columns = ["global_id", "id_within_video", "video"]
-        df = df_empty(columns, [np.int64, np.int64, str])
+        columns = ["global_id", "id_within_video", "video", "frame"]
+        dtypes = [np.int64, np.int64, str, str]
+        df = df_empty(columns, dtypes)
         videos = self.list_videos(base_path)
         failed_videos = []
         successfull_videos = []
         for video in videos:
             try:
-                instance_id_annotation_file = self.get_instance_id_annotation_file(
+                instance_id_annotation_files = self.get_instance_id_annotation_files(
                     base_path, video
                 )
-                human_ids_within_video = self.get_human_ids_within_video(
-                    instance_id_annotation_file
-                )
-                new_global_human_ids = list(
-                    map(lambda v_id: v_id + global_human_id, human_ids_within_video)
-                )
-                msg = "visiting {} - found ids {} - adding as {}".format(
-                    video, human_ids_within_video, new_global_human_ids
-                )
-                print(msg)
-                for new_global_human_id, new_id_within_video in zip(
-                    new_global_human_ids, human_ids_within_video
-                ):
-                    new_data_row = {
-                        "global_id": new_global_human_id,
-                        "id_within_video": new_id_within_video,
-                        "video": video,
-                    }
-                    df = df.append(new_data_row, ignore_index=True)
-                global_human_id = max(new_global_human_ids)
+                human_ids_within_video = set([])
+                for instance_id_annotation_file in instance_id_annotation_files:
+                    human_ids_within_frame = self.get_human_ids_from_annotation_file(
+                        instance_id_annotation_file
+                    )
+                    frame_number = self.get_frame_number_from_annotation_file(
+                        instance_id_annotation_file
+                    )
+                    human_ids_within_video.update(set(human_ids_within_frame))
+                    new_global_human_ids = list(
+                        map(lambda v_id: v_id + global_human_id, human_ids_within_frame)
+                    )
+                    msg = "visiting {} - found ids {} - adding as {}".format(
+                        video, human_ids_within_frame, new_global_human_ids
+                    )
+                    print(msg)
+                    for new_global_human_id, new_id_within_frame in zip(
+                        new_global_human_ids, human_ids_within_frame
+                    ):
+                        new_data_row = {
+                            "global_id": new_global_human_id,
+                            "id_within_video": new_id_within_frame,
+                            "video": video,
+                            "frame": frame_number,
+                        }
+                        df = df.append(new_data_row, ignore_index=True)
+                global_human_id += max(human_ids_within_video)
                 print(df.tail(4))
                 successfull_videos.append(video)
             except Exception:
@@ -149,17 +170,56 @@ class VIP(edu.DatasetMixin):
         )
         return image_files
 
-    def get_instance_id_annotation_file(self, base_path, video):
-        """get_instance_id_annotation_file("/mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine", "videos1"):
-            --> /mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine/Annotations/Instance_ids/videos1/000000000001.txt"
+    def get_image_file(self, video: str, frame: str) -> str:
+        relative_subpath = os.path.join("VIP_Fine", "Images", video)
+        image_file = os.path.join(relative_subpath, frame + ".jpg")
+        return image_file
+
+    def get_human_instance_segmentation_file(self, video: str, frame: str) -> str:
+        relative_subpath = os.path.join("VIP_Fine", "Annotations", "Human_ids", video)
+        image_file = os.path.join(relative_subpath, frame + ".png")
+        return image_file
+
+    def get_instance_id_annotation_files(self, base_path, video):
+        """get_instance_id_annotation_file("/mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine", "videos1")
+        --> [
+            /mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine/Annotations/Instance_ids/videos1/000000000001.txt,
+            /mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine/Annotations/Instance_ids/videos1/000000000251.txt,
+        ]
+        Parameters
+        ----------
+        base_path
+        video
+
+        Returns
+        -------
+
         """
         abs_path = os.path.join(base_path, "Annotations", "Instance_ids", video)
         txt_files = os.listdir(abs_path)
         txt_files = list(filter(lambda x: os.path.splitext(x)[1] == ".txt", txt_files))
-        first_file = sorted(txt_files)[0]
-        return os.path.join(abs_path, first_file)
+        txt_files = sorted(txt_files)
+        txt_files = list(map(lambda x: os.path.join(abs_path, x), txt_files))
+        return txt_files
 
-    def get_human_ids_within_video(self, instance_id_annotation_file):
+    def get_frame_number_from_annotation_file(self, annotation_file):
+        """/mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine/Annotations/Instance_ids/videos1/000000000001.txt
+        --> 000000000001"""
+        fname = os.path.basename(annotation_file)
+        fname_no_ext = os.path.splitext(fname)[0]
+        return fname_no_ext
+
+    def get_human_ids_from_annotation_file(self, instance_id_annotation_file):
+        """/mnt/hci_gpu/compvis_group/sabraun/LIP_VIP/VIP_Fine/Annotations/Instance_ids/videos1/000000000001.txt
+        --> [1, 2, 4]
+        Parameters
+        ----------
+        instance_id_annotation_file
+
+        Returns
+        -------
+
+        """
         ids = pd.read_csv(
             instance_id_annotation_file,
             sep=" ",
@@ -181,6 +241,10 @@ class VIP(edu.DatasetMixin):
 
 
 class VIPInstanceCropped(VIP):
+    # TODO: it looks like instance annotations are not consistent within videos. This is a problem for the stochastic pair case
+    # for example video 17, frame 826 -> frame 851. One instance is leaving the frame here
+    # but the annotation marks the instance remaining in the frame as instance 1 in 851 and instance 2 in 826
+    # one would have to use reid manually on the instances to get the assignment within the video
     def __init__(self, config):
         """
         Examples
@@ -223,33 +287,61 @@ class VIPInstanceCropped(VIP):
         else:
             image = image_crop
 
-        image = edu.resize_float32(image, self.config.get("spatial_size", 256))
+        image = edu.resize_float32(image, self.size)
         example["image"] = image
         return example
 
 
-class VIPInstanceCroppedStochasticPair(VIPInstanceCropped):
-    pass
+class VIPInstanceCroppedStochasticPair(VIPInstanceCropped, PRNGMixin):
+    # TODO: it looks like instance annotations are not consistent within videos. This is a problem for the stochastic pair case
+    # for example video 17, frame 826 -> frame 851. One instance is leaving the frame here
+    # but the annotation marks the instance remaining in the frame as instance 1 in 851 and instance 2 in 826
+    # one would have to use reid manually on the instances to get the assignment within the video
+    def __init__(self, config):
+        super(VIPInstanceCroppedStochasticPair, self).__init__(config)
+        self.avoid_identity = config.get("data_avoid_identity", True)
+        self.flip = config.get("data_flip", False)
+
+        self.labels = edu.add_choices(self.labels, character_id_key="id")
+        self.labels = pd.DataFrame(self.labels)
+
+    def get_example(self, i):
+        choices = self.labels["choices"][i]
+        if self.avoid_identity and len(choices) > 1:
+            choices = [c for c in choices if c != i]
+        j = self.prng.choice(choices)
+
+        e0 = super(VIPInstanceCroppedStochasticPair, self).get_example(i)
+        e1 = super(VIPInstanceCroppedStochasticPair, self).get_example(j)
+
+        return {"view0": e0["image"], "view1": e1["image"]}
 
 
 if __name__ == "__main__":
     from pylab import *
     import cv2
 
-    d = VIP()
-    example = d.get_example(0)
-    image = cv2.imread(example["file_path_"])
-    plt.imshow(image)
-    plt.savefig("e0.png")
+    # d = VIP()
+    # example = d.get_example(0)
+    # image = cv2.imread(example["file_path_"])
+    # plt.imshow(image)
+    # plt.savefig("e0.png")
+    #
+    # d = VIPInstanceCropped({"masked": True})
+    # example = d.get_example(0)
+    # image = example["image"]
+    # plt.imshow((np.squeeze(image) + 1.0) / 2)
+    # plt.savefig("e1.png")
+    #
+    # d = VIPInstanceCropped({"masked": False})
+    # example = d.get_example(0)
+    # image = example["image"]
+    # plt.imshow((np.squeeze(image) + 1.0) / 2)
+    # plt.savefig("e2.png")
 
-    d = VIPInstanceCropped({"masked": True})
-    example = d.get_example(0)
-    image = example["image"]
-    plt.imshow((np.squeeze(image) + 1.0) / 2)
-    plt.savefig("e1.png")
-
-    d = VIPInstanceCropped({"masked": False})
-    example = d.get_example(0)
-    image = example["image"]
-    plt.imshow((np.squeeze(image) + 1.0) / 2)
-    plt.savefig("e2.png")
+    d = VIPInstanceCroppedStochasticPair({"masked": True})
+    example = d.get_example(2005)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    axes[0].imshow((example["view0"] + 1.0) / 2)
+    axes[1].imshow((example["view1"] + 1.0) / 2)
+    plt.savefig("e3.png")

@@ -204,3 +204,25 @@ def df_empty(columns, dtypes=None, index=None):
     for c, d in zip(columns, dtypes):
         df[c] = pd.Series(dtype=d)
     return df
+
+
+def add_choices(labels, return_by_cid=False, character_id_key="character_id"):
+    labels = dict(labels)
+    cid_labels = np.asarray(labels[character_id_key])
+    cids = np.unique(cid_labels)
+    cid_indices = dict()
+    for cid in cids:
+        cid_indices[cid] = np.nonzero(cid_labels == cid)[0]
+        verbose = False
+        if verbose:
+            if len(cid_indices[cid]) <= 1:
+                print("No choice for {}: {}".format(cid, cid_indices[cid]))
+
+    labels["choices"] = list()
+    for i in range(len(labels[character_id_key])):
+        cid = labels[character_id_key][i]
+        choices = cid_indices[cid]
+        labels["choices"].append(choices)
+    if return_by_cid:
+        return labels, cid_indices
+    return labels
