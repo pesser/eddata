@@ -341,6 +341,13 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
 
 
 class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
+    def __init__(self, config):
+        super(StochasticPairsWithMaskWithSuperpixels, self).__init__(config)
+        default_superpixel_params = {"n_segments": 250, "compactness": 10, "sigma": 1}
+        self.superpixel_params = config.get(
+            "superpixel_params", default_superpixel_params
+        )
+
     def __len__(self):
         return self._length
 
