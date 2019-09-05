@@ -5,6 +5,7 @@ from edflow.iterators.batches import load_image
 import os
 import numpy as np
 import cv2
+from skimage.segmentation import slic
 
 
 def resize_labels(labels, size):
@@ -233,7 +234,12 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
                     "data_root": "foo",
                     "data_csv": "train.csv",
                     "spatial_size" : 256
-                    "data_labels" : "from_csv_header"
+                    "data_labels" : "from_csv_header",
+                    "superpixel_params": {
+                        "n_segments" : 250,
+                        "compactness" : 10,
+                        "sigma" : 1
+                    }
                 }
 
                 optional config parameters:
@@ -258,13 +264,16 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
                 config: dict with options. See above
                 """
         super(StochasticPairsWithSuperpixels, self).__init__(config)
+        default_superpixel_params = {"n_segments": 250, "compactness": 10, "sigma": 1}
+        self.superpixel_params = config.get(
+            "superpixel_params", default_superpixel_params
+        )
 
     def make_labels(self):
         expected_data_header = [
             "character_id",
             "relative_file_path_",
             "relative_mask_path_",
-            "relative_segment_path_",
         ]
         header = self.config.get("data_csv_header", expected_data_header)
         if header == "from_csv":
@@ -304,15 +313,11 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
 
         view0 = self.preprocess_image(self.labels["file_path_"][i])
         view1 = self.preprocess_image(self.labels["file_path_"][j])
-        superpixel_segments0 = cv2.imread(
-            self.labels["segment_path_"][i], -1
-        )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments0 = slic(view0, **self.superpixel_params)
         superpixel_segments0 = resize_labels(
             superpixel_segments0, (self.size, self.size)
         )
-        superpixel_segments1 = cv2.imread(
-            self.labels["segment_path_"][j], -1
-        )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments1 = slic(view1, **self.superpixel_params)
         superpixel_segments1 = resize_labels(
             superpixel_segments1, (self.size, self.size)
         )
@@ -344,7 +349,6 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
             "character_id",
             "relative_file_path_",
             "relative_mask_path_",
-            "relative_segment_path_",
         ]
         header = self.config.get("data_csv_header", expected_data_header)
         if header == "from_csv":
@@ -353,7 +357,6 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
             with open(self.csv) as f:
                 lines = f.read().splitlines()
             lines = [l.split(",") for l in lines]
-
             self.labels = {
                 label_name: [l[i] for l in lines]
                 for label_name, i in zip(header, range(len(header)))
@@ -391,15 +394,11 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         view1 = self.preprocess_image(
             self.labels["file_path_"][j], self.labels["mask_path_"][j]
         )
-        superpixel_segments0 = cv2.imread(
-            self.labels["segment_path_"][i], -1
-        )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments0 = slic(view0, **self.superpixel_params)
         superpixel_segments0 = resize_labels(
             superpixel_segments0, (self.size, self.size)
         )
-        superpixel_segments1 = cv2.imread(
-            self.labels["segment_path_"][j], -1
-        )  # cv2 is necessary because segments can be 16 bit
+        superpixel_segments1 = slic(view1, **self.superpixel_params)
         superpixel_segments1 = resize_labels(
             superpixel_segments1, (self.size, self.size)
         )
