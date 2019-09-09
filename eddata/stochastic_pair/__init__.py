@@ -6,6 +6,8 @@ import os
 import numpy as np
 import cv2
 from skimage.segmentation import slic
+import pandas as pd
+import eddata.utils as edu
 
 
 def resize_labels(labels, size):
@@ -52,64 +54,85 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         config: {
             "data_root": "foo",
             "data_csv": "train.csv",
-            "data_csv_header" : ["character_id", "relative_file_path_" : 1] # or "from_csv"
             "spatial_size" : 256,
         }
 
         optional config parameters:
         config: {
-            "data_flip" : False,     # flip data randomly. Default `False`.
-            "avoid_identity" : False, # avoid the identity. Default `False`.
+            "data_flip" : False,        # flip data randomly. Default `False`.
+            "avoid_identity" : False,   # avoid the identity. Default `False`.
+            "data_csv_columns" : ["character_id", "relative_file_path_"] # `list` of `str` column names or "from_csv",
+            "data_csv_has_header" : False # default `False`
         }
 
-        data_csv has to have the following layout:
-        id,image_path_from_data_root
-
+        suggested data_csv layout
+        id,relative_image_path_,col3,co4,...
         for example:
-        1,frames/01/00001.jpg
-        1,frames/01/00002.jpg
+        1,frames/01/00001.jpg,xxx,yyy
+        1,frames/01/00002.jpg,xxx,yyy
         ...
-        2,frames/02/00001.jpg
-        2,frames/02/00002.jpg
+        2,frames/02/00001.jpg,xxx,yyy
+        2,frames/02/00002.jpg,xxx,yyy
 
         If the csv has more columns, the other columns will be ignored.
         Parameters
         ----------
         config: dict with options. See above
+
+        Examples
+        --------
+            See test
         """
         self.config = config
         self.size = config["spatial_size"]
         self.root = config["data_root"]
         self.csv = config["data_csv"]
+        self.csv_has_header = config.get("data_csv_has_header", False)
         self.avoid_identity = config.get("data_avoid_identity", True)
         self.flip = config.get("data_flip", False)
         self.make_labels()
-        self.labels = add_choices(self.labels)
+        self.labels = edu.add_choices(self.labels)
 
     def make_labels(self):
-        expected_data_header = ["character_id", "relative_file_path_"]
-        header = self.config.get("data_csv_header", expected_data_header)
-        self.header = header  # type : list
-        if header == "from_csv":
-            raise NotImplementedError("from csv is not implemented yet")
+        expected_data_csv_columns = ["character_id", "relative_file_path_"]
+        data_csv_columns = self.config.get(
+            "data_csv_columns", expected_data_csv_columns
+        )
+        if data_csv_columns == "from_csv":
+            labels_df = pd.read_csv(self.csv)
+            self.data_csv_columns = labels_df.columns
         else:
-            with open(self.csv) as f:
-                lines = f.read().splitlines()
-            lines = [l.split(",") for l in lines]
+            self.data_csv_columns = data_csv_columns
+            if self.csv_has_header:
+                labels_df = pd.read_csv(self.csv)
+            else:
+                labels_df = pd.read_csv(self.csv, header=None)
+            labels_df.rename(
+                columns={
+                    old: new
+                    for old, new in zip(
+                        labels_df.columns[: len(data_csv_columns)], data_csv_columns
+                    )
+                },
+                inplace=True,
+            )
+        self.labels = dict(labels_df)
+        self.labels = {k: list(v) for k, v in self.labels.items()}
 
-            self.labels = {
-                label_name: [l[i] for l in lines]
-                for label_name, i in zip(header, range(len(header)))
-            }
-            for label_name, i in zip(header, range(len(header))):
-                if "file_path_" in label_name:
-                    label_update = {
-                        label_name.replace("relative_", ""): [
-                            os.path.join(self.root, l[i]) for l in lines
-                        ]
-                    }
-                    self.labels.update(label_update)
-            self._length = len(lines)
+        def add_root_path(x):
+            return os.path.join(self.root, x)
+
+        for label_name, i in zip(
+            self.data_csv_columns, range(len(self.data_csv_columns))
+        ):
+            if "file_path_" in label_name:
+                label_update = {
+                    label_name.replace("relative_", ""): list(
+                        map(add_root_path, self.labels[label_name])
+                    )
+                }
+                self.labels.update(label_update)
+        self._length = len(self.labels)
 
     def __len__(self):
         return self._length
@@ -143,9 +166,9 @@ class StochasticPairsWithMask(StochasticPairs):
 
         optional config parameters:
         config: {
-            "mask_label" : 1,        # use mask label 1 for masking. can be a float. Default `1`.
-            "invert_mask" : False,   # invert mask. This is usefull if it is easier to just provide the background. Default `False`.
-            "data_flip" : False,     # flip data randomly. Default `False`.
+            "mask_label" : 1,         # use mask label 1 for masking. can be a float. Default `1`.
+            "invert_mask" : False,    # invert mask. This is useful if it is easier to just provide the background. Default `False`.
+            "data_flip" : False,      # flip data randomly. Default `False`.
             "avoid_identity" : False, # avoid the identity. Default `False`.
         }
 
@@ -429,23 +452,16 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         return example
 
 
-def add_choices(labels, return_by_cid=False):
-    labels = dict(labels)
-    cid_labels = np.asarray(labels["character_id"])
-    cids = np.unique(cid_labels)
-    cid_indices = dict()
-    for cid in cids:
-        cid_indices[cid] = np.nonzero(cid_labels == cid)[0]
-        verbose = False
-        if verbose:
-            if len(cid_indices[cid]) <= 1:
-                print("No choice for {}: {}".format(cid, cid_indices[cid]))
-
-    labels["choices"] = list()
-    for i in range(len(labels["character_id"])):
-        cid = labels["character_id"][i]
-        choices = cid_indices[cid]
-        labels["choices"].append(choices)
-    if return_by_cid:
-        return labels, cid_indices
-    return labels
+if __name__ == "__main__":
+    config = {
+        "data_root": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/",
+        "data_csv": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/csvs/instance_level_train_split.csv",
+        "data_avoid_identity": False,
+        "data_flip": True,
+        "spatial_size": 256,
+        "mask_label": 255,
+        "invert_mask": False,
+        "data_csv_header": ["character_id", "relative_file_path_"],
+    }
+    dset = StochasticPairs(config)
+    e = dset.get_example(0)
