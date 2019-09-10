@@ -196,11 +196,7 @@ class StochasticPairsWithMask(StochasticPairs):
 
 
 class StochasticPairsWithSuperpixels(StochasticPairs):
-    expected_data_csv_columns = [
-        "character_id",
-        "relative_file_path_",
-        "relative_mask_path_",
-    ]
+    expected_data_csv_columns = ["character_id", "relative_file_path_"]
 
     def __init__(self, config):
         """

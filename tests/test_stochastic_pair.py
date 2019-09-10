@@ -274,16 +274,12 @@ class Test_StochasticPairsWithMask(object):
 class Test_StochasticPairsWithSuperpixels(object):
     def test_load_csv(self, tmpdir):
         p = tmpdir.mkdir("data")
-        setup_csv_with_segments(p)
+        setup_csv_with_images(p)
         config = {
             "data_root": p,
             "data_csv": os.path.join(p, "data.csv"),
             "spatial_size": (256, 256),
-            "data_csv_columns": [
-                "character_id",
-                "relative_file_path_",
-                "relative_mask_path_",
-            ],
+            "data_csv_columns": ["character_id", "relative_file_path_"],
             "data_csv_has_header": False,
         }
         dset = stochastic_pair.StochasticPairsWithSuperpixels(config)
@@ -295,9 +291,3 @@ class Test_StochasticPairsWithSuperpixels(object):
 
         unique_file_paths = set(dset.labels["file_path_"])
         assert set([os.path.join(p, "im.png")]) == unique_file_paths
-
-        unique_mask_paths = set(dset.labels["relative_mask_path_"])
-        assert set(["mask.png"]) == unique_mask_paths
-
-        unique_mask_paths = set(dset.labels["mask_path_"])
-        assert set([os.path.join(p, "mask.png")]) == unique_mask_paths
