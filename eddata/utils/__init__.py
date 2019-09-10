@@ -9,6 +9,7 @@ from edflow.iterators.batches import (
     resize_float32,
     save_image,
 )
+import cv2
 
 
 def reporthook(bar):
