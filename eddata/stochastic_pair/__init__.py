@@ -94,7 +94,7 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
                     )
                 }
                 self.labels.update(label_update)
-        self._length = len(self.labels)
+        self._length = len(list(self.labels.values())[0])
 
     def __len__(self):
         return self._length
@@ -354,3 +354,21 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
             "segments1": superpixel_segments1.astype(np.int32),
         }
         return example
+
+
+if __name__ == "__main__":
+    config = {
+        "data_root": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/",
+        "data_csv": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/csvs/instance_level_train_split.csv",
+        "data_avoid_identity": False,
+        "data_flip": True,
+        "spatial_size": 256,
+        "mask_label": 255,
+        "invert_mask": False,
+        "data_csv_columns": ["character_id", "relative_file_path_"],
+        "data_csv_has_header": True,
+    }
+    dset = StochasticPairs(config)
+    example = dset.get_example(4)
+    view0 = example["view0"]
+    view1 = example["view1"]

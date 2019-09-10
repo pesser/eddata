@@ -61,24 +61,11 @@ class Test_StochasticPairs(object):
         unique_file_paths = set(dset.labels["file_path_"])
         assert set([os.path.join(p, "im.png")]) == unique_file_paths
 
+        assert len(dset) == 10
+
     def test_load_headers_from_csv(self, tmpdir):
         """
-        config = {
-            "data_root": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/",
-            "data_csv": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/csvs/instance_level_train_split.csv",
-            "data_avoid_identity": False,
-            "data_flip": True,
-            "spatial_size" : 256,
-            "mask_label" : 255,
-            "invert_mask" : False,
-            "data_csv_columns" : "from_csv"
-        }
-        Parameters
-        ----------
-        tmpdir
-
-        Returns
-        -------
+        # TODO
         """
 
         def setup_csv(tmpdir):
@@ -111,25 +98,11 @@ class Test_StochasticPairs(object):
         unique_file_paths = set(dset.labels["file_path_"])
         assert set([os.path.join(p, "im.png")]) == unique_file_paths
 
+        assert len(dset) == 10
+
     def test_provide_headers_in_config(self, tmpdir):
         """
-        config = {
-            "data_root": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/",
-            "data_csv": "/mnt/comp/code/nips19/data/exercise_data/exercise_dataset/csvs/instance_level_train_split.csv",
-            "data_avoid_identity": False,
-            "data_flip": True,
-            "spatial_size" : 256,
-            "mask_label" : 255,
-            "invert_mask" : False,
-            "data_csv_header" : ["character_id", "relative_file_path_"]
-            "data
-        }
-        Parameters
-        ----------
-        tmpdir
-
-        Returns
-        -------
+        # TODO
         """
 
         def setup_csv(tmpdir):
@@ -160,6 +133,8 @@ class Test_StochasticPairs(object):
 
         unique_file_paths = set(dset.labels["file_path_"])
         assert unique_file_paths == set([os.path.join(p, "im.png")])
+
+        assert len(dset) == 10
 
     def test_provide_headers_in_config2(self, tmpdir):
         """
@@ -211,6 +186,8 @@ class Test_StochasticPairs(object):
         unique_file_paths = set(dset.labels["file_path_"])
         assert set([os.path.join(p, "im.png")]) == unique_file_paths
 
+        assert len(dset) == 10
+
 
 class Test_StochasticPairsWithMask(object):
     def test_load_csv(self, tmpdir):
@@ -243,6 +220,8 @@ class Test_StochasticPairsWithMask(object):
         unique_mask_paths = set(dset.labels["mask_path_"])
         assert set([os.path.join(p, "mask.png")]) == unique_mask_paths
 
+        assert len(dset) == 10
+
     def test_csv_has_more_columns(self, tmpdir):
         p = tmpdir.mkdir("data")
         setup_csv_with_many_columns(p)
@@ -266,6 +245,8 @@ class Test_StochasticPairsWithMask(object):
 
         unique_mask_paths = set(dset.labels["relative_mask_path_"])
         assert set(["mask.png"]) == unique_mask_paths
+
+        assert len(dset) == 10
 
 
 # TODO: parameterize test_load_csv to avoid dublicate code between Stochastic pair loaders
@@ -291,3 +272,5 @@ class Test_StochasticPairsWithSuperpixels(object):
 
         unique_file_paths = set(dset.labels["file_path_"])
         assert set([os.path.join(p, "im.png")]) == unique_file_paths
+
+        assert len(dset) == 10
