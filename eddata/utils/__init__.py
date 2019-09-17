@@ -9,6 +9,7 @@ from edflow.iterators.batches import (
     resize_float32,
     save_image,
 )
+import cv2
 
 
 def reporthook(bar):
@@ -91,3 +92,63 @@ def quadratic_crop(x, bbox, alpha=1.0):
     xmin = int(center[0] - l / 2)
     ymin = int(center[1] - l / 2)
     return np.array(x[ymin : ymin + l, xmin : xmin + l, ...])
+
+
+def add_choices(labels, return_by_cid=False, character_id_key="character_id"):
+    labels = dict(labels)
+    cid_labels = np.asarray(labels[character_id_key])
+    cids = np.unique(cid_labels)
+    cid_indices = dict()
+    for cid in cids:
+        cid_indices[cid] = np.nonzero(cid_labels == cid)[0]
+        verbose = False
+        if verbose:
+            if len(cid_indices[cid]) <= 1:
+                print("No choice for {}: {}".format(cid, cid_indices[cid]))
+
+    labels["choices"] = list()
+    for i in range(len(labels[character_id_key])):
+        cid = labels[character_id_key][i]
+        choices = cid_indices[cid]
+        labels["choices"].append(choices)
+    if return_by_cid:
+        return labels, cid_indices
+    return labels
+
+
+def resize_labels(labels, size):
+    """Reshape labels image to target size.
+
+    Parameters
+    ----------
+    labels : np.ndarray
+        [H, W] or [N, H, W] - shaped array where each pixel is an `int` giving a label id for the segmentation. In case of [N, H, W],
+        each slice along the first dimension is treated as an independent label image.
+    size : tuple of ints
+        Target shape as tuple of ints
+
+    Returns
+    -------
+    reshaped_labels : np.ndarray
+        [size[0], size[1]] or [N, size[0], size[1]]-shaped array
+
+    Raises
+    ------
+    ValueError
+        if labels does not have valid shape
+    """
+    # TODO: make this work for a single image
+    if len(labels.shape) == 2:
+        return cv2.resize(labels, size, 0, 0, cv2.INTER_NEAREST)
+    elif len(labels.shape) == 3:
+        label_list = np.split(labels, labels.shape[0], axis=0)
+        label_list = list(
+            map(
+                lambda x: cv2.resize(np.squeeze(x), size, 0, 0, cv2.INTER_NEAREST),
+                label_list,
+            )
+        )
+        labels = np.stack(label_list, axis=0)
+        return labels
+    else:
+        raise ValueError("unsupported shape for labels : {}".format(labels.shape))
