@@ -139,7 +139,7 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         if self.flip_v:
             images = self.stochastic_flip_v(*images)
         if self.rotate:
-            images = self.stochastic_flip_v(*images)
+            images = self.stochastic_rotate(*images)
         return images
 
     def stochastic_flip_h(self, *images):
