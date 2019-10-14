@@ -23,6 +23,8 @@ def tps_parameters(
 ):
     """Create TPS parameters for use with @make_input_tps_param.
 
+    # TODO: add deterministic behavior for tests
+
     Parameters
     ----------
     augm_scal
