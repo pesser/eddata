@@ -152,7 +152,7 @@ def no_transformation_parameters(batch_size):
     trf_arg["off_scal"] = 0.0
     trf_arg["scal_var"] = 0.0
     trf_arg["augm_scal"] = 0.0
-    trf_arg["batch_size"] = 2 * batch_size
+    trf_arg["batch_size"] = batch_size
 
     return trf_arg
 
