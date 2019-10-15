@@ -7,7 +7,33 @@ tf.enable_eager_execution()
 tf.random.set_random_seed(42)
 
 
-class Test_Model:
+def get_test_image():
+    """Test image representing coordinate grid
+
+        --------------------
+        |  |  |  |  |  |  |
+        --------------------
+        |  |  |  |  |  |  |
+        --------------------
+        |  |  |  |  |  |  |
+        --------------------
+        |  |  |  |  |  |  |
+        --------------------
+
+    Returns
+    -------
+    """
+    N = 256
+    d = 25
+    image = np.zeros((1, N, N, 3), dtype=np.float32)
+    image[:, ::d, :, :] = 1.0
+    image[:, :, ::d, :] = 1.0
+    image = tf.convert_to_tensor(image)
+    image = tf.image.resize(image, (N, N))
+    return image
+
+
+class Test_TPS:
     @pytest.mark.mpl_image_compare
     def test_tps_params(self):
         from eddata.utils.tps import (
@@ -15,7 +41,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -27,18 +52,14 @@ class Test_Model:
         augm_scal = 1.0
 
         tps_param_dic = tps_parameters(
-            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+            bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
-
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -55,20 +76,16 @@ class Test_Model:
             tps_parameters,
             no_transformation_parameters,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
-
-        trf_args = no_transformation_parameters(batch_size=2)
+        trf_args = no_transformation_parameters(1)
         tps_param_dic = tps_parameters(**trf_args)
+        image = get_test_image()
+
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -85,7 +102,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -96,18 +112,14 @@ class Test_Model:
         augm_scal = 1.0
 
         tps_param_dic = tps_parameters(
-            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+            bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
-
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -124,7 +136,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -135,18 +146,14 @@ class Test_Model:
         augm_scal = 1.0
 
         tps_param_dic = tps_parameters(
-            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+            bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
-
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -163,7 +170,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -174,18 +180,14 @@ class Test_Model:
         augm_scal = 1.0
 
         tps_param_dic = tps_parameters(
-            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+            bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
-
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -202,7 +204,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -214,18 +215,14 @@ class Test_Model:
         # augm_scal = 1.0
 
         tps_param_dic = tps_parameters(
-            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+            bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
-
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -242,7 +239,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -254,18 +250,14 @@ class Test_Model:
         augm_scal = 1.0
 
         tps_param_dic = tps_parameters(
-            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+            bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
-
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
-
-        orig_images = tf.tile(image, [2, 1, 1, 1])
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)
@@ -289,7 +281,6 @@ class Test_Model:
             make_input_tps_param,
             ThinPlateSpline,
         )
-        from skimage import data
 
         tf.random.set_random_seed(42)
         bs = 1
@@ -304,13 +295,12 @@ class Test_Model:
             bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
         )
 
-        image = data.astronaut()
-        image = np.expand_dims(image, 0) / 255.0
-        image = tf.convert_to_tensor(image)
-        image = tf.image.resize(image, (128, 128))
+        image = get_test_image()
 
         coord, vector = make_input_tps_param(tps_param_dic)
-        t_images, t_mesh = ThinPlateSpline(image, coord, vector, 128, 3)
+        t_images, t_mesh = ThinPlateSpline(
+            image, coord, vector, image.shape[1], image.shape[-1]
+        )
 
         with plt.rc_context({"figure.figsize": [10, 5]}):
             plt.subplot(121)

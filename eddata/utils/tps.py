@@ -21,24 +21,41 @@ def tf_rotation_matrix(rotation):
 def tps_parameters(
     batch_size, scal, tps_scal, rot_scal, off_scal, scal_var, rescal=1, augm_scal=1.0
 ):
-    """Create TPS parameters for use with @make_input_tps_param.
-
-    # TODO: add deterministic behavior for tests
+    """Create tps_parameter dict for usage with @make_input_tps_param
 
     Parameters
     ----------
-    augm_scal
-    batch_size:
-    scal: scaling
-    tps_scal:
-    rot_scal:
-    off_scal:
-    scal_var:
-    rescal:
+    batch_size: int
+    scal: float
+    tps_scal: float
+    rot_scal: float
+    off_scal: float
+    scal_var: float
+    rescal: float
+    augm_scal : float
+        scaling factor for data augmentation. Also known as zoom factor.
 
     Returns
     -------
 
+    Examples
+    --------
+
+        bs = 1
+        scal = 1.0
+        tps_scal = 0.05
+        rot_scal = 0.1
+        off_scal = 0.15
+        scal_var = 0.05
+        augm_scal = 1.0
+
+        tps_param_dic = tps_parameters(
+            2 * bs, scal, tps_scal, rot_scal, off_scal, scal_var, augm_scal
+        )
+        coord, vector = make_input_tps_param(tps_param_dic)
+        t_images, t_mesh = ThinPlateSpline(
+            orig_images, coord, vector, orig_images.shape[1], orig_images.shape[-1]
+        )
     """
     coord = tf.constant(
         [
@@ -109,18 +126,37 @@ def static_param_3d(param):
     return param
 
 
-def make_input_tps_param(tps_param, move_point=None, scal_point=None):
+def make_input_tps_param(tps_parameter_dict, move_point=None, scal_point=None):
     """make coord and t_vector parameters for use with @ThinPlateSpline.
 
-    tps_param: dict
+    # TODO: what is coord and t_vector exactly=
+
+    Parameters
+    ----------
+    tps_parameter_dict: dict
         can be created from @tps_parameters
+    move_point:
+        # TODO: what does that
+    scal_point:
+        # TODO: what does that
+    Returns
+    -------
+
+    Examples
+    --------
+        trf_args = no_transformation_parameters(batch_size=1)
+        tps_param_dic = tps_parameters(**trf_args)
+        coord, vector = make_input_tps_param(tps_param_dic)
+        t_images, t_mesh = ThinPlateSpline(orig_images, coord, vector, 128, 3)
+        plt.subplot(111)
+        plt.imshow(np.squeeze(t_images[0]))
     """
-    coord = tps_param["coord"]
-    vector = tps_param["vector"]
-    offset = tps_param["offset"]
-    offset_2 = tps_param["offset_2"]
-    rot_mat = tps_param["rot_mat"]
-    t_scal = tps_param["t_scal"]
+    coord = tps_parameter_dict["coord"]
+    vector = tps_parameter_dict["vector"]
+    offset = tps_parameter_dict["offset"]
+    offset_2 = tps_parameter_dict["offset_2"]
+    rot_mat = tps_parameter_dict["rot_mat"]
+    t_scal = tps_parameter_dict["t_scal"]
 
     scaled_coord = tf.einsum("bk,bck->bck", t_scal, coord + vector - offset) + offset
     t_vector = (
@@ -136,29 +172,41 @@ def make_input_tps_param(tps_param, move_point=None, scal_point=None):
 
 
 def no_transformation_parameters(batch_size):
+    """create TPS transformation parameters that produce the identity (roughly).
+    Should be used with @make_input_tps_param
 
+    Parameters
+    ----------
+    batch_size: int
+
+    Returns
+    -------
+    tps_transform_args: dict
+        dict with the following values:
+            tps_transform_args["scal"] = 1.0
+            tps_transform_args["tps_scal"] = 0.0
+            tps_transform_args["rot_scal"] = 0.0
+            tps_transform_args["off_scal"] = 0.0
+            tps_transform_args["scal_var"] = 0.0
+            tps_transform_args["augm_scal"] = 0.0
+            tps_transform_args["batch_size"] = batch_size
     """
-    if no transform: arg.scal is still used
-    default for penn {'scal': 0.5, 'tps_scal': 0.05, 'rot_scal': 0.3, 'off_scal': 0.15, 'scal_var': 0.1}
-    :param t:
-    :param range:
-    :return:
-    """
-    trf_arg = {}
+    tps_transform_args = {}
 
-    trf_arg["scal"] = 1.0
-    trf_arg["tps_scal"] = 0.0
-    trf_arg["rot_scal"] = 0.0
-    trf_arg["off_scal"] = 0.0
-    trf_arg["scal_var"] = 0.0
-    trf_arg["augm_scal"] = 0.0
-    trf_arg["batch_size"] = batch_size
+    tps_transform_args["scal"] = 1.0
+    tps_transform_args["tps_scal"] = 0.0
+    tps_transform_args["rot_scal"] = 0.0
+    tps_transform_args["off_scal"] = 0.0
+    tps_transform_args["scal_var"] = 0.0
+    tps_transform_args["augm_scal"] = 0.0
+    tps_transform_args["batch_size"] = batch_size
 
-    return trf_arg
+    return tps_transform_args
 
 
 def adapt_tps_for_crop(tps_param, move_point, scal_point):
     """
+    # TODO: what does this?
     :param center_point: b, 1, 2
     :param tps_param:
     :return:
@@ -173,10 +221,8 @@ def adapt_tps_for_crop(tps_param, move_point, scal_point):
 
 
 def ThinPlateSpline(U, coord, vector, out_size, n_c, move=None, scal=None):
-
     coord = coord[:, :, ::-1]
     vector = vector[:, :, ::-1]
-
     num_batch = tf.shape(U)[0]
     height = tf.shape(U)[1]
     width = tf.shape(U)[2]
