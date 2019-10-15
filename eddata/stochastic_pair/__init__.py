@@ -22,7 +22,9 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
 
         optional config parameters:
         config: {
-            "data_flip" : False,        # flip data randomly. Default `False`.
+            "data_flip_h": False,       # flip data randomly in horizontal direction
+            "data_flip_v": False,       # flip data randomly in vertical direction
+            "data_rotate": False,       # rotate data randomly in
             "avoid_identity" : False,   # avoid the identity. Default `False`.
             "data_csv_columns" : ["character_id", "relative_file_path_"] # `list` of `str` column names or "from_csv",
             "data_csv_has_header" : False # default `False`
@@ -52,7 +54,21 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         self.csv = config["data_csv"]
         self.csv_has_header = config.get("data_csv_has_header", False)
         self.avoid_identity = config.get("data_avoid_identity", True)
-        self.flip = config.get("data_flip", False)
+
+        if config.get("data_flip", False):
+            import warnings
+
+            # TODO: this warning actually does not work
+
+            warnings.warn(
+                "use 'data_flip_h', 'data_flip_v' instead of data_flip",
+                DeprecationWarning,
+            )
+            self.flip_h = self.flip_v = config.get("data_flip")
+        else:
+            self.flip_h = config.get("data_flip_h", False)
+            self.flip_v = config.get("data_flip_v", False)
+        self.rotate = config.get("data_rotate", False)
         self.make_labels()
         self.labels = edu.add_choices(self.labels)
 
@@ -102,9 +118,6 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
     def preprocess_image(self, image_path):
         image = load_image(image_path)
         image = resize(image, self.size)
-        if self.flip:
-            if self.prng.choice([True, False]):
-                image = np.flip(image, axis=1)
         return image
 
     def get_example(self, i):
@@ -114,7 +127,35 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         j = self.prng.choice(choices)
         view0 = self.preprocess_image(self.labels["file_path_"][i])
         view1 = self.preprocess_image(self.labels["file_path_"][j])
+
+        view0, = self.augment_data(view0)
+        view1, = self.augment_data(view1)
+
         return {"view0": view0, "view1": view1}
+
+    def augment_data(self, *images):
+        if self.flip_h:
+            images = self.stochastic_flip_h(*images)
+        if self.flip_v:
+            images = self.stochastic_flip_v(*images)
+        if self.rotate:
+            images = self.stochastic_rotate(*images)
+        return images
+
+    def stochastic_flip_h(self, *images):
+        if self.prng.choice([True, False]):
+            images = [np.flip(i, axis=1) for i in images]
+        return images
+
+    def stochastic_flip_v(self, *images):
+        if self.prng.choice([True, False]):
+            images = [np.flip(i, axis=0) for i in images]
+        return images
+
+    def stochastic_rotate(self, *images):
+        how_many_rotations = self.prng.choice([0, 1, 2, 3])
+        images = [np.rot90(i, how_many_rotations) for i in images]
+        return images
 
 
 class StochasticPairsWithMask(StochasticPairs):
@@ -136,7 +177,9 @@ class StochasticPairsWithMask(StochasticPairs):
         config: {
             "mask_label" : 1,           # use mask label 1 for masking. can be a float. Default `1`.
             "invert_mask" : False,      # invert mask. This is useful if it is easier to just provide the background. Default `False`.
-            "data_flip" : False,        # flip data randomly. Default `False`.
+            "data_flip_h": False,       # flip data randomly in horizontal direction
+            "data_flip_v": False,       # flip data randomly in vertical direction
+            "data_rotate": False,       # rotate data randomly in
             "avoid_identity" : False,   # avoid the identity. Default `False`.
             "data_csv_columns" : ["character_id", "relative_file_path_"] # `list` of `str` column names or "from_csv",
             "data_csv_has_header" : False # default `False`
@@ -176,9 +219,6 @@ class StochasticPairsWithMask(StochasticPairs):
             mask = np.logical_not(mask)
         image = image * 1.0 * mask
         image = resize(image, self.size)
-        if self.flip:
-            if self.prng.choice([True, False]):
-                image = np.flip(image, axis=1)
         return image
 
     def get_example(self, i) -> dict:
@@ -192,6 +232,9 @@ class StochasticPairsWithMask(StochasticPairs):
         view1 = self.preprocess_image(
             self.labels["file_path_"][j], self.labels["mask_path_"][j]
         )
+
+        view0, = self.augment_data(view0)
+        view1, = self.augment_data(view1)
         return {"view0": view0, "view1": view1}
 
 
@@ -210,7 +253,9 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         config: {
             "mask_label" : 1,           # use mask label 1 for masking. can be a float. Default `1`.
             "invert_mask" : False,      # invert mask. This is useful if it is easier to just provide the background. Default `False`.
-            "data_flip" : False,        # flip data randomly. Default `False`.
+            "data_flip_h": False,       # flip data randomly in horizontal direction
+            "data_flip_v": False,       # flip data randomly in vertical direction
+            "data_rotate": False,       # rotate data randomly in
             "avoid_identity" : False,   # avoid the identity. Default `False`.
             "data_csv_columns" : ["character_id", "relative_file_path_"] # `list` of `str` column names or "from_csv",
             "data_csv_has_header" : False # default `False`,
@@ -271,15 +316,9 @@ class StochasticPairsWithSuperpixels(StochasticPairs):
         )
         superpixel_segments0 = np.expand_dims(superpixel_segments0, -1)
         superpixel_segments1 = np.expand_dims(superpixel_segments1, -1)
-        if self.flip:
-            if self.prng.choice([True, False]):
-                view0 = np.flip(view0, axis=1)
-                superpixel_segments0 = np.flip(superpixel_segments0, axis=1)
+        superpixel_segments0, view0 = self.augment_data(superpixel_segments0, view0)
+        superpixel_segments1, view1 = self.augment_data(superpixel_segments1, view1)
 
-        if self.flip:
-            if self.prng.choice([True, False]):
-                view1 = np.flip(view1, axis=1)
-                superpixel_segments1 = np.flip(superpixel_segments1, axis=1)
         return {
             "view0": view0,
             "view1": view1,
@@ -338,15 +377,10 @@ class StochasticPairsWithMaskWithSuperpixels(StochasticPairsWithMask):
         )
         superpixel_segments0 = np.expand_dims(superpixel_segments0, -1)
         superpixel_segments1 = np.expand_dims(superpixel_segments1, -1)
-        if self.flip:
-            if self.prng.choice([True, False]):
-                view0 = np.flip(view0, axis=1)
-                superpixel_segments0 = np.flip(superpixel_segments0, axis=1)
 
-        if self.flip:
-            if self.prng.choice([True, False]):
-                view1 = np.flip(view1, axis=1)
-                superpixel_segments1 = np.flip(superpixel_segments1, axis=1)
+        view0, superpixel_segments0 = self.augment_data(view0, superpixel_segments0)
+        view1, superpixel_segments1 = self.augment_data(view1, superpixel_segments1)
+
         example = {
             "view0": view0,
             "view1": view1,
