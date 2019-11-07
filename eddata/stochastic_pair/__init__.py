@@ -205,6 +205,7 @@ class StochasticPairsWithMask(StochasticPairs):
         """
         self.mask_label = config.get("mask_label", 1)
         self.invert_mask = config.get("invert_mask", False)
+        self.apply_mask = config.get("apply_mask", True)
         super(StochasticPairsWithMask, self).__init__(config)
 
     def __len__(self):
@@ -217,8 +218,9 @@ class StochasticPairsWithMask(StochasticPairs):
         mask = mask == self.mask_label
         if self.invert_mask:
             mask = np.logical_not(mask)
-        image = image * 1.0 * mask
-        image = resize(image, self.size)
+        if self.apply_mask:
+            image = image * 1.0 * mask
+            image = resize(image, self.size)
         return image
 
     def get_example(self, i) -> dict:
