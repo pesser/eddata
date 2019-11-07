@@ -256,6 +256,7 @@ class Test_StochasticPairsWithMask(object):
         import os
         import cv2
 
+        # TODO: refactor this
         p = tmpdir.mkdir("masking")
         img = data.astronaut()
         mask = np.zeros((512, 512), dtype=np.uint8)
@@ -279,6 +280,7 @@ class Test_StochasticPairsWithMask(object):
         }
         dset = stochastic_pair.StochasticPairsWithMask(config)
         example = dset.get_example(0)
+        assert all([v.shape[:2] == (256, 256) for v in example.values()])
 
         fig, ax = plt.subplots(1, 3)
         ax[0].imshow(img)
@@ -287,6 +289,52 @@ class Test_StochasticPairsWithMask(object):
         ax[1].set_title("mask")
         ax[2].imshow(example["view0"])
         ax[2].set_title("applied mask")
+        return fig
+
+    @pytest.mark.mpl_image_compare
+    def test_masking_not_apply(self, tmpdir):
+        from skimage import data
+        import numpy as np
+        import os
+        import cv2
+
+        # TODO: refactor this
+        p = tmpdir.mkdir("masking")
+        img = data.astronaut()
+        mask = np.zeros((512, 512), dtype=np.uint8)
+        mask[200:400, 200:400] = 255
+        cv2.imwrite(os.path.join(p, "image.png"), img)
+        cv2.imwrite(os.path.join(p, "mask.png"), mask)
+        with open(os.path.join(p, "data.csv"), "w") as f:
+            print("1,image.png,mask.png", file=f)
+
+        config = {
+            "mask_label": 1,
+            "apply_mask": False,
+            "data_root": p,
+            "data_csv": os.path.join(p, "data.csv"),
+            "spatial_size": (256, 256),
+            "data_csv_columns": [
+                "character_id",
+                "relative_file_path_",
+                "relative_mask_path_",
+            ],
+            "data_csv_has_header": False,
+        }
+        dset = stochastic_pair.StochasticPairsWithMask(config)
+        example = dset.get_example(0)
+
+        assert all([v.shape[:2] == (256, 256) for v in example.values()])
+
+        fig, ax = plt.subplots(1, 4)
+        ax[0].imshow(img)
+        ax[0].set_title("image")
+        ax[1].imshow(mask)
+        ax[1].set_title("mask")
+        ax[2].imshow(example["view0"])
+        ax[2].set_title("example view")
+        ax[3].imshow(example["mask0"] * 255)
+        ax[3].set_title("example mask")
         return fig
 
 

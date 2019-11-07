@@ -7,6 +7,7 @@ import numpy as np
 from skimage.segmentation import slic
 import pandas as pd
 import eddata.utils as edu
+import cv2
 
 
 class StochasticPairs(DatasetMixin, PRNGMixin):
@@ -218,26 +219,27 @@ class StochasticPairsWithMask(StochasticPairs):
         mask = mask == self.mask_label
         if self.invert_mask:
             mask = np.logical_not(mask)
-        if self.apply_mask:
-            image = image * 1.0 * mask
-            image = resize(image, self.size)
-        return image
+        image = resize(image, self.size)
+        mask = cv2.resize(1 * mask.astype(np.uint8), self.size, cv2.INTER_NEAREST)
+        return image, mask
 
     def get_example(self, i) -> dict:
         choices = self.labels["choices"][i]
         if self.avoid_identity and len(choices) > 1:
             choices = [c for c in choices if c != i]
         j = self.prng.choice(choices)
-        view0 = self.preprocess_image(
+        view0, mask0 = self.preprocess_image(
             self.labels["file_path_"][i], self.labels["mask_path_"][i]
         )
-        view1 = self.preprocess_image(
+        view1, mask1 = self.preprocess_image(
             self.labels["file_path_"][j], self.labels["mask_path_"][j]
         )
-
-        view0, = self.augment_data(view0)
-        view1, = self.augment_data(view1)
-        return {"view0": view0, "view1": view1}
+        if self.apply_mask:
+            view0 *= mask0
+            view1 *= mask1
+            return {"view0": view0, "view1": view1}
+        else:
+            return {"view0": view0, "view1": view1, "mask0": mask0, "mask1": mask1}
 
 
 class StochasticPairsWithSuperpixels(StochasticPairs):
