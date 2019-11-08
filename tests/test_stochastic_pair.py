@@ -44,6 +44,28 @@ def setup_csv_with_many_columns(tmpdir):
 
 
 class Test_StochasticPairs(object):
+    def test_spatialsizeinput(self, tmpdir):
+        """ test if spatial_size config option can be provided as int or as tuple interchangably """
+        p = tmpdir.mkdir("data")
+        setup_csv_with_masks(p)
+        config = {
+            "data_root": p,
+            "data_csv": os.path.join(p, "data.csv"),
+            "spatial_size": (256, 256),
+        }
+        dset = stochastic_pair.StochasticPairs(config)
+        assert dset.size == (256, 256)
+
+        p = tmpdir.mkdir("data2")
+        setup_csv_with_masks(p)
+        config = {
+            "data_root": p,
+            "data_csv": os.path.join(p, "data.csv"),
+            "spatial_size": 256,
+        }
+        dset = stochastic_pair.StochasticPairs(config)
+        assert dset.size == (256, 256)
+
     def test_csv_has_more_columns(self, tmpdir):
         p = tmpdir.mkdir("data")
         setup_csv_with_masks(p)

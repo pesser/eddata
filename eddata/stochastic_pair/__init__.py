@@ -51,6 +51,8 @@ class StochasticPairs(DatasetMixin, PRNGMixin):
         """
         self.config = config
         self.size = config["spatial_size"]
+        if not isinstance(self.size, tuple):
+            self.size = (self.size, self.size)
         self.root = config["data_root"]
         self.csv = config["data_csv"]
         self.csv_has_header = config.get("data_csv_has_header", False)
